@@ -1,0 +1,25 @@
+﻿{
+  "name": "HIITタイマー",
+  "short_name": "HIITタイマー",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone"],
+  "theme_color": "#1E88E5",
+  "background_color": "#1E88E5",
+  "description": "運動と休憩のインターバルをシンプルに管理できる HIIT タイマーです。",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

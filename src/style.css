@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   font-family: 'Segoe UI', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
   font-size: 16px;
   color-scheme: dark;
@@ -116,6 +116,7 @@ body {
   line-height: 1;
   text-align: center;
   letter-spacing: -0.04em;
+  transform: translateY(-14%);
 }
 
 .controls {
@@ -344,6 +345,8 @@ input:focus-visible {
     font-size: min(30vw, 180px);
   }
 }
+
+
 
 
 

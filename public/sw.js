@@ -11,9 +11,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
-      )
+      Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))
     )
   );
   self.clients.claim();
@@ -29,6 +27,10 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  if (requestURL.pathname.startsWith('/@vite') || requestURL.pathname.includes('__vite')) {
+    return;
+  }
+
   event.respondWith(
     caches.open(CACHE_NAME).then(async (cache) => {
       const cached = await cache.match(event.request);
@@ -36,7 +38,7 @@ self.addEventListener('fetch', (event) => {
       const networkFetch = fetch(event.request)
         .then((response) => {
           if (response && response.status === 200) {
-            cache.put(event.request, response.clone());
+            cache.put(event.request, response.clone()).catch(() => undefined);
           }
           return response;
         })
@@ -53,10 +55,18 @@ self.addEventListener('fetch', (event) => {
       }
 
       if (event.request.mode === 'navigate') {
-        return cache.match('./');
+        const fallback = await cache.match('./');
+        if (fallback) {
+          return fallback;
+        }
       }
 
-      return caches.match(event.request);
+      const precached = await cache.match(event.request);
+      if (precached) {
+        return precached;
+      }
+
+      return new Response('', { status: 504, statusText: 'Gateway Timeout' });
     })
   );
 });

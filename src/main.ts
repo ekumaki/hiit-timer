@@ -2,14 +2,13 @@
 import { createTimer, Phase, TimerSettings, TimerSnapshot, TimerStatus } from './timer';
 import { audioManager } from './audio';
 import { vibrationManager } from './vibrate';
-import { loadSettings, saveSettings, StoredSettings } from './storage';
+import { DEFAULT_SETTINGS, loadSettings, saveSettings, StoredSettings } from './storage';
 import { wakeLockManager } from './wake-lock';
 
 type FieldKey = 'workSeconds' | 'restSeconds' | 'rounds';
 
 interface FieldConfig {
   label: string;
-  unit: string;
   min: number;
   max: number;
   errorMessage: string;
@@ -18,21 +17,18 @@ interface FieldConfig {
 const FIELD_CONFIG: Record<FieldKey, FieldConfig> = {
   workSeconds: {
     label: '運動',
-    unit: '秒',
     min: 5,
     max: 600,
     errorMessage: '5〜600の整数を入力してください'
   },
   restSeconds: {
     label: '休憩',
-    unit: '秒',
     min: 5,
     max: 600,
     errorMessage: '5〜600の整数を入力してください'
   },
   rounds: {
-    label: 'ラウンド',
-    unit: '回',
+    label: '回数',
     min: 1,
     max: 50,
     errorMessage: '1〜50の整数を入力してください'
@@ -40,7 +36,7 @@ const FIELD_CONFIG: Record<FieldKey, FieldConfig> = {
 };
 
 const BACKGROUND_COLORS: Record<Phase, string> = {
-  idle: '#BDBDBD',
+  idle: '#000000',
   work: '#E53935',
   rest: '#1E88E5',
   finished: '#BDBDBD'
@@ -101,6 +97,11 @@ audioManager.setMuted(state.settings.muted);
 vibrationManager.setMuted(state.settings.muted);
 
 const ui = renderBaseMarkup(root, state.settings);
+const roundHost = root.querySelector('.timer-visual');
+if (roundHost) {
+  roundHost.appendChild(ui.roundLabel);
+  ui.roundLabel.classList.add('round-label--below');
+}
 let currentSnapshot: TimerSnapshot | null = null;
 
 const timer = createTimer(toTimerSettings(state.settings), (snapshot) => {
@@ -174,7 +175,17 @@ function handleStartToggle(): void {
 }
 
 function handleReset(): void {
-  if (currentSnapshot?.status === 'paused') {
+  if (!currentSnapshot) {
+    return;
+  }
+
+  if (currentSnapshot.status === 'idle') {
+    resetToDefaultSettings();
+    timer.reset();
+    return;
+  }
+
+  if (currentSnapshot.status === 'paused' || currentSnapshot.status === 'finished') {
     timer.reset();
   }
 }
@@ -186,21 +197,24 @@ function handleMuteToggle(): void {
 
 function updateView(snapshot: TimerSnapshot): void {
   const background = BACKGROUND_COLORS[snapshot.phase];
-  const textColor = pickTextColor(background);
+  const textColor = snapshot.phase === 'idle' || snapshot.phase === 'work' || snapshot.phase === 'rest'
+    ? '#FFFFFF'
+    : pickTextColor(background);
+
   setCssVar('--background-color', background);
   setCssVar('--text-color', textColor);
   ui.container.dataset.phase = snapshot.phase;
 
   ui.phaseLabel.textContent = PHASE_LABEL_MAP[snapshot.phase];
-  const roundCurrent = snapshot.currentRound === 0 ? 0 : snapshot.currentRound;
-  ui.roundLabel.textContent = `${roundCurrent} / ${snapshot.totalRounds}`;
+  const displayedRound = snapshot.currentRound === 0 ? 0 : snapshot.currentRound;
+  ui.roundLabel.textContent = `${displayedRound} / ${snapshot.totalRounds}`;
 
   const secondsRemaining = computeSeconds(snapshot);
   ui.timeValue.textContent = formatSeconds(secondsRemaining);
 
   const progress = calculateProgress(snapshot);
   const dashOffset = ui.circumference * (1 - progress);
-  ui.progressCircle.style.strokeDashoffset = `${dashOffset}`;
+  ui.progressCircle.style.strokeDashoffset = `${-dashOffset}`;
 
   const { status } = snapshot;
   if (status === 'running') {
@@ -214,7 +228,9 @@ function updateView(snapshot: TimerSnapshot): void {
     ui.startButton.setAttribute('aria-label', 'タイマーを開始');
   }
 
-  ui.resetButton.disabled = status !== 'paused';
+  const resetEnabled = status === 'paused' || status === 'finished' || status === 'idle';
+  ui.resetButton.disabled = !resetEnabled;
+
   setInputsDisabled(status === 'running' || status === 'paused');
 
   document.title =
@@ -273,6 +289,22 @@ function triggerEndFeedback(): void {
   vibrationManager.trigger(PHASE_VIBRATION_MS);
 }
 
+function resetToDefaultSettings(): void {
+  const nextSettings: StoredSettings = {
+    ...state.settings,
+    workSeconds: DEFAULT_SETTINGS.workSeconds,
+    restSeconds: DEFAULT_SETTINGS.restSeconds,
+    rounds: DEFAULT_SETTINGS.rounds
+  };
+  state.settings = nextSettings;
+  for (const field of Object.keys(FIELD_CONFIG) as FieldKey[]) {
+    ui.inputs[field].value = nextSettings[field].toString();
+    validateField(field);
+  }
+  saveSettings(nextSettings);
+  timer.updateSettings(toTimerSettings(nextSettings));
+}
+
 function validateField(field: FieldKey): void {
   const input = ui.inputs[field];
   const config = FIELD_CONFIG[field];
@@ -326,20 +358,32 @@ function calculateProgress(snapshot: TimerSnapshot): number {
 
 function setupAdjustButton(button: HTMLButtonElement, field: FieldKey, delta: number): void {
   let holdTimeout: number | null = null;
-  let holdInterval: number | null = null;
+  let repeatInterval: number | null = null;
+  let accelerationTimeout: number | null = null;
+
+  const step = () => adjustField(field, delta);
 
   const clearTimers = () => {
     if (holdTimeout !== null) {
       window.clearTimeout(holdTimeout);
       holdTimeout = null;
     }
-    if (holdInterval !== null) {
-      window.clearInterval(holdInterval);
-      holdInterval = null;
+    if (repeatInterval !== null) {
+      window.clearInterval(repeatInterval);
+      repeatInterval = null;
+    }
+    if (accelerationTimeout !== null) {
+      window.clearTimeout(accelerationTimeout);
+      accelerationTimeout = null;
     }
   };
 
-  const step = () => adjustField(field, delta);
+  const startRepeater = (interval: number) => {
+    if (repeatInterval !== null) {
+      window.clearInterval(repeatInterval);
+    }
+    repeatInterval = window.setInterval(step, interval);
+  };
 
   button.addEventListener('pointerdown', (event) => {
     if (button.disabled) {
@@ -349,8 +393,11 @@ function setupAdjustButton(button: HTMLButtonElement, field: FieldKey, delta: nu
     button.setPointerCapture?.(event.pointerId);
     step();
     holdTimeout = window.setTimeout(() => {
-      holdInterval = window.setInterval(step, 120);
-    }, 500);
+      startRepeater(120);
+      accelerationTimeout = window.setTimeout(() => {
+        startRepeater(60);
+      }, 900);
+    }, 300);
   });
 
   const endHold = (event: PointerEvent) => {
@@ -361,7 +408,10 @@ function setupAdjustButton(button: HTMLButtonElement, field: FieldKey, delta: nu
 
   button.addEventListener('pointerup', endHold);
   button.addEventListener('pointercancel', endHold);
-  button.addEventListener('pointerleave', clearTimers);
+  button.addEventListener('pointerleave', (event) => {
+    clearTimers();
+    button.releasePointerCapture?.(event.pointerId);
+  });
 }
 
 function adjustField(field: FieldKey, delta: number): void {
@@ -406,7 +456,7 @@ function clamp(value: number, min: number, max: number): number {
 function pickTextColor(hex: string): string {
   const rgb = hexToRgb(hex);
   if (!rgb) {
-    return '#000000';
+    return '#FFFFFF';
   }
   const luminance = relativeLuminance(rgb);
   const contrastWhite = (1 + 0.05) / (luminance + 0.05);
@@ -453,15 +503,13 @@ function renderBaseMarkup(rootEl: HTMLElement, settings: StoredSettings): UiElem
   const fieldsMarkup = (Object.keys(FIELD_CONFIG) as FieldKey[])
     .map((field) => {
       const config = FIELD_CONFIG[field];
-      const unitLabel = config.unit === '秒' ? '秒' : '回';
       return `
         <div class="setting-field" data-field="${field}">
-          <label class="setting-label" for="${field}">${config.label}</label>
+          <p class="setting-label">${config.label}</p>
           <div class="setting-input">
-            <button type="button" class="adjust-button" data-field="${field}" data-delta="-1" aria-label="${config.label}を1${unitLabel}減らす">-</button>
+            <button type="button" class="adjust-button adjust-increase" data-field="${field}" data-delta="1" aria-label="${config.label}を1増やす">＋</button>
             <input id="${field}" name="${field}" type="number" inputmode="numeric" pattern="[0-9]*" min="${config.min}" max="${config.max}" step="1" aria-describedby="${field}-error" />
-            <span class="unit">${config.unit}</span>
-            <button type="button" class="adjust-button" data-field="${field}" data-delta="1" aria-label="${config.label}を1${unitLabel}増やす">+</button>
+            <button type="button" class="adjust-button adjust-decrease" data-field="${field}" data-delta="-1" aria-label="${config.label}を1減らす">ー</button>
           </div>
           <p class="field-error" id="${field}-error" role="alert" aria-live="assertive"></p>
         </div>
@@ -485,20 +533,20 @@ function renderBaseMarkup(rootEl: HTMLElement, settings: StoredSettings): UiElem
         </div>
       </main>
       <section class="controls">
-        <form class="settings-form" novalidate>
-          <fieldset class="settings-group">
-            <legend class="visually-hidden">タイマー設定</legend>
-            ${fieldsMarkup}
-          </fieldset>
-        </form>
         <div class="action-row">
-          <button type="button" class="action-button action-reset" disabled>リセット</button>
+          <button type="button" class="action-button action-reset">リセット</button>
           <button type="button" class="action-button action-toggle">開始</button>
           <button type="button" class="action-button action-mute" aria-pressed="false" aria-label="サウンドとバイブをミュート">
             <span class="mute-icon" aria-hidden="true">🔈</span>
             <span class="visually-hidden">サウンドとバイブをミュート</span>
           </button>
         </div>
+        <form class="settings-form" novalidate>
+          <fieldset class="settings-group">
+            <legend class="visually-hidden">タイマー設定</legend>
+            ${fieldsMarkup}
+          </fieldset>
+        </form>
       </section>
     </div>
   `;
@@ -538,7 +586,7 @@ function renderBaseMarkup(rootEl: HTMLElement, settings: StoredSettings): UiElem
   const radius = progressCircle.r.baseVal.value;
   const circumference = 2 * Math.PI * radius;
   progressCircle.style.strokeDasharray = `${circumference}`;
-  progressCircle.style.strokeDashoffset = '0';
+  progressCircle.style.strokeDashoffset = `${circumference}`;
 
   return {
     container,
@@ -575,9 +623,20 @@ async function releaseWakeLock(): Promise<void> {
 }
 
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    registerServiceWorker();
-  });
+  if (import.meta.env.PROD) {
+    window.addEventListener('load', () => {
+      void registerServiceWorker();
+    });
+  } else {
+    navigator.serviceWorker
+      .getRegistrations()
+      .then((registrations) => {
+        registrations.forEach((registration) => {
+          registration.unregister().catch(() => undefined);
+        });
+      })
+      .catch(() => undefined);
+  }
 }
 
 async function registerServiceWorker(): Promise<void> {
@@ -590,4 +649,12 @@ async function registerServiceWorker(): Promise<void> {
     console.warn('Service Worker の登録に失敗しました', error);
   }
 }
+
+
+
+
+
+
+
+
 

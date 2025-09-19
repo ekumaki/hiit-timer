@@ -37,9 +37,9 @@ const FIELD_CONFIG: Record<FieldKey, FieldConfig> = {
 
 const BACKGROUND_COLORS: Record<Phase, string> = {
   idle: '#000000',
-  work: '#E53935',
-  rest: '#1E88E5',
-  finished: '#BDBDBD'
+  work: '#000000',
+  rest: '#000000',
+  finished: '#000000'
 };
 
 const PHASE_LABEL_MAP: Record<Phase, string> = {
@@ -649,6 +649,7 @@ async function registerServiceWorker(): Promise<void> {
     console.warn('Service Worker の登録に失敗しました', error);
   }
 }
+
 
 
 

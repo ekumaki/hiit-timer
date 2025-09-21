@@ -64,7 +64,11 @@ interface UiElements {
   roundLabel: HTMLElement;
   timeValue: HTMLElement;
   startButton: HTMLButtonElement;
+  startIcon: HTMLElement;
+  startLabel: HTMLElement;
   resetButton: HTMLButtonElement;
+  resetIcon: HTMLElement;
+  resetLabel: HTMLElement;
   muteButton: HTMLButtonElement;
   muteIcon: HTMLElement;
   settingsForm: HTMLFormElement;
@@ -218,14 +222,18 @@ function updateView(snapshot: TimerSnapshot): void {
 
   const { status } = snapshot;
   if (status === 'running') {
-    ui.startButton.textContent = '一時停止';
-    ui.startButton.setAttribute('aria-label', 'タイマーを一時停止');
-  } else if (status === 'paused') {
-    ui.startButton.textContent = '再開';
-    ui.startButton.setAttribute('aria-label', 'タイマーを再開');
+    ui.startIcon.textContent = '⏸';
+    ui.startIcon.style.fontSize = '1.2em';
+    ui.startLabel.textContent = 'Pause';
+    ui.startButton.setAttribute('aria-label', 'Pause timer');
   } else {
-    ui.startButton.textContent = '開始';
-    ui.startButton.setAttribute('aria-label', 'タイマーを開始');
+    ui.startIcon.style.fontSize = '1.1em';
+    ui.startIcon.textContent = '▶';
+    ui.startIcon.style.fontSize = '0.9em';
+    ui.startLabel.textContent = 'Start';
+    ui.startLabel.style.fontSize = '1.1rem';
+    const ariaText = status === 'paused' ? 'Resume timer' : 'Start timer';
+    ui.startButton.setAttribute('aria-label', ariaText);
   }
 
   const resetEnabled = status === 'paused' || status === 'finished' || status === 'idle';
@@ -267,6 +275,7 @@ function handlePhaseSideEffects(snapshot: TimerSnapshot): void {
   if (snapshot.status === 'running') {
     void ensureWakeLock();
   } else {
+    ui.startIcon.style.fontSize = '1.1em';
     void releaseWakeLock();
   }
 
@@ -534,8 +543,14 @@ function renderBaseMarkup(rootEl: HTMLElement, settings: StoredSettings): UiElem
       </main>
       <section class="controls">
         <div class="action-row">
-          <button type="button" class="action-button action-reset">リセット</button>
-          <button type="button" class="action-button action-toggle">開始</button>
+          <button type="button" class="action-button action-reset" aria-label="Reset timer">
+            <span class="btn-icon" aria-hidden="true">↻</span>
+            <span class="btn-label">Reset</span>
+          </button>
+          <button type="button" class="action-button action-toggle" aria-label="Start timer">
+            <span class="btn-icon" aria-hidden="true">▶</span>
+            <span class="btn-label">Start</span>
+          </button>
           <button type="button" class="action-button action-mute" aria-pressed="false" aria-label="サウンドとバイブをミュート">
             <span class="mute-icon" aria-hidden="true">🔈</span>
             <span class="visually-hidden">サウンドとバイブをミュート</span>
@@ -567,6 +582,15 @@ function renderBaseMarkup(rootEl: HTMLElement, settings: StoredSettings): UiElem
     throw new Error('UI 初期化に失敗しました');
   }
 
+  const startIcon = startButton.querySelector<HTMLElement>('.btn-icon');
+  const startLabel = startButton.querySelector<HTMLElement>('.btn-label');
+  const resetIcon = resetButton.querySelector<HTMLElement>('.btn-icon');
+  const resetLabel = resetButton.querySelector<HTMLElement>('.btn-label');
+
+  if (!startIcon || !startLabel || !resetIcon || !resetLabel) {
+    throw new Error('操作ボタンのラベル要素が見つかりません');
+  }
+
   const inputs = {
     workSeconds: rootEl.querySelector<HTMLInputElement>('#workSeconds'),
     restSeconds: rootEl.querySelector<HTMLInputElement>('#restSeconds'),
@@ -594,7 +618,11 @@ function renderBaseMarkup(rootEl: HTMLElement, settings: StoredSettings): UiElem
     roundLabel,
     timeValue,
     startButton,
+    startIcon,
+    startLabel,
     resetButton,
+    resetIcon,
+    resetLabel,
     muteButton,
     muteIcon,
     settingsForm,
@@ -628,6 +656,7 @@ if ('serviceWorker' in navigator) {
       void registerServiceWorker();
     });
   } else {
+    ui.startIcon.style.fontSize = '1.1em';
     navigator.serviceWorker
       .getRegistrations()
       .then((registrations) => {

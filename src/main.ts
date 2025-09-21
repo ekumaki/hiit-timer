@@ -230,8 +230,10 @@ function updateView(snapshot: TimerSnapshot): void {
     ui.startIcon.style.fontSize = '1.1em';
     ui.startIcon.textContent = '▶';
     ui.startIcon.style.fontSize = '0.9em';
+    ui.startIcon.style.lineHeight = '1';
     ui.startLabel.textContent = 'Start';
     ui.startLabel.style.fontSize = '1.1rem';
+    ui.startLabel.style.lineHeight = '1';
     const ariaText = status === 'paused' ? 'Resume timer' : 'Start timer';
     ui.startButton.setAttribute('aria-label', ariaText);
   }
@@ -590,6 +592,21 @@ function renderBaseMarkup(rootEl: HTMLElement, settings: StoredSettings): UiElem
   if (!startIcon || !startLabel || !resetIcon || !resetLabel) {
     throw new Error('操作ボタンのラベル要素が見つかりません');
   }
+
+  const setupInline = (icon: HTMLElement, label: HTMLElement) => {
+    icon.style.display = 'inline-flex';
+    icon.style.alignItems = 'center';
+    icon.style.justifyContent = 'center';
+    icon.style.lineHeight = '1';
+    label.style.display = 'inline-flex';
+    label.style.alignItems = 'center';
+    label.style.justifyContent = 'center';
+    label.style.lineHeight = '1';
+  };
+
+  setupInline(startIcon, startLabel);
+  setupInline(resetIcon, resetLabel);
+
 
   const inputs = {
     workSeconds: rootEl.querySelector<HTMLInputElement>('#workSeconds'),

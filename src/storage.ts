@@ -1,4 +1,4 @@
-﻿import { TimerSettings } from './timer';
+import { TimerSettings } from './timer';
 
 export interface StoredSettings extends TimerSettings {
   muted: boolean;
@@ -12,7 +12,7 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   restSeconds: 10,
   rounds: 8,
   muted: false,
-  settingsPanelOpen: true
+  settingsPanelOpen: false
 };
 
 export function loadSettings(): StoredSettings {
@@ -45,7 +45,7 @@ export function loadSettings(): StoredSettings {
           : DEFAULT_SETTINGS.settingsPanelOpen
     };
   } catch (error) {
-    console.warn('設定の読み込みに失敗しました', error);
+    console.warn('Failed to load settings', error);
     return { ...DEFAULT_SETTINGS };
   }
 }
@@ -54,7 +54,7 @@ export function saveSettings(settings: StoredSettings): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
   } catch (error) {
-    console.warn('設定の保存に失敗しました', error);
+    console.warn('Failed to save settings', error);
   }
 }
 
@@ -62,11 +62,12 @@ export function clearStoredSettings(): void {
   try {
     localStorage.removeItem(STORAGE_KEY);
   } catch (error) {
-    console.warn('設定の削除に失敗しました', error);
+    console.warn('Failed to clear settings', error);
   }
 }
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
+
 

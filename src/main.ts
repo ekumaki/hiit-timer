@@ -16,22 +16,22 @@ interface FieldConfig {
 
 const FIELD_CONFIG: Record<FieldKey, FieldConfig> = {
   workSeconds: {
-    label: '運動',
+    label: 'Work',
     min: 5,
     max: 600,
-    errorMessage: '5〜600の整数を入力してください'
+    errorMessage: 'Enter a whole number between 5 and 600.'
   },
   restSeconds: {
-    label: '休憩',
+    label: 'Rest',
     min: 5,
     max: 600,
     errorMessage: '5〜600の整数を入力してください'
   },
   rounds: {
-    label: '回数',
+    label: 'Round',
     min: 1,
     max: 50,
-    errorMessage: '1〜50の整数を入力してください'
+    errorMessage: 'Enter a whole number between 1 and 50.'
   }
 };
 
@@ -71,6 +71,8 @@ interface UiElements {
   resetLabel: HTMLElement;
   muteButton: HTMLButtonElement;
   muteIcon: HTMLElement;
+  settingsToggle: HTMLButtonElement;
+  settingsPanel: HTMLElement;
   settingsForm: HTMLFormElement;
   inputs: Record<FieldKey, HTMLInputElement>;
   errors: Record<FieldKey, HTMLElement>;
@@ -96,6 +98,10 @@ const state = {
   lastStatus: 'idle' as TimerStatus,
   wakeLockActive: false
 };
+
+if (typeof state.settings.settingsPanelOpen !== 'boolean') {
+  state.settings.settingsPanelOpen = DEFAULT_SETTINGS.settingsPanelOpen;
+}
 
 audioManager.setMuted(state.settings.muted);
 vibrationManager.setMuted(state.settings.muted);
@@ -127,6 +133,9 @@ function initialize(): void {
   ui.startButton.addEventListener('click', handleStartToggle);
   ui.resetButton.addEventListener('click', handleReset);
   ui.muteButton.addEventListener('click', handleMuteToggle);
+  ui.settingsToggle.addEventListener('click', toggleSettingsPanel);
+
+  setSettingsPanelOpen(state.settings.settingsPanelOpen ?? DEFAULT_SETTINGS.settingsPanelOpen, { persist: false, animate: false });
 
   ui.adjustButtons.forEach((button) => {
     const field = button.dataset.field as FieldKey | undefined;
@@ -175,6 +184,9 @@ function handleStartToggle(): void {
   if (!allFieldsValid()) {
     return;
   }
+  if (state.settings.settingsPanelOpen) {
+    setSettingsPanelOpen(false);
+  }
   timer.start();
 }
 
@@ -197,6 +209,38 @@ function handleReset(): void {
 function handleMuteToggle(): void {
   setMutedState(!state.settings.muted);
   saveSettings(state.settings);
+}
+
+function toggleSettingsPanel(): void {
+  setSettingsPanelOpen(!state.settings.settingsPanelOpen);
+}
+
+function setSettingsPanelOpen(
+  open: boolean,
+  options: { persist?: boolean; animate?: boolean } = {}
+): void {
+  const { persist = true, animate = true } = options;
+  const previous = state.settings.settingsPanelOpen;
+  state.settings.settingsPanelOpen = open;
+
+  if (!animate) {
+    ui.settingsPanel.classList.add('settings-panel--no-transition');
+  }
+
+  ui.settingsPanel.classList.toggle('settings-panel--open', open);
+  ui.settingsPanel.setAttribute('aria-hidden', open ? 'false' : 'true');
+  ui.settingsToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  ui.settingsToggle.classList.toggle('is-open', open);
+
+  if (!animate) {
+    requestAnimationFrame(() => {
+      ui.settingsPanel.classList.remove('settings-panel--no-transition');
+    });
+  }
+
+  if (persist && previous !== open) {
+    saveSettings(state.settings);
+  }
 }
 
 function updateView(snapshot: TimerSnapshot): void {
@@ -511,23 +555,30 @@ function toTimerSettings(settings: StoredSettings): TimerSettings {
 }
 
 function renderBaseMarkup(rootEl: HTMLElement, settings: StoredSettings): UiElements {
+  const panelIsInitiallyOpen = settings.settingsPanelOpen ?? DEFAULT_SETTINGS.settingsPanelOpen;
+  const toggleExpandedAttr = panelIsInitiallyOpen ? 'true' : 'false';
+  const toggleOpenClass = panelIsInitiallyOpen ? ' is-open' : '';
+  const panelClass = panelIsInitiallyOpen ? 'settings-panel settings-panel--open' : 'settings-panel';
+  const panelAriaHidden = panelIsInitiallyOpen ? 'false' : 'true';
+
   const fieldsMarkup = (Object.keys(FIELD_CONFIG) as FieldKey[])
     .map((field) => {
       const config = FIELD_CONFIG[field];
       return `
         <div class="setting-field" data-field="${field}">
-          <p class="setting-label">${config.label}</p>
-          <div class="setting-input">
-            <button type="button" class="adjust-button adjust-increase" data-field="${field}" data-delta="1" aria-label="${config.label}を1増やす">＋</button>
-            <input id="${field}" name="${field}" type="number" inputmode="numeric" pattern="[0-9]*" min="${config.min}" max="${config.max}" step="1" aria-describedby="${field}-error" />
-            <button type="button" class="adjust-button adjust-decrease" data-field="${field}" data-delta="-1" aria-label="${config.label}を1減らす">ー</button>
+          <div class="setting-row">
+            <p class="setting-label">${config.label}</p>
+            <div class="setting-controls">
+              <button type="button" class="adjust-button adjust-decrease" data-field="${field}" data-delta="-1" aria-label="Decrease ${config.label} by 1">-</button>
+              <input id="${field}" name="${field}" type="number" inputmode="numeric" pattern="[0-9]*" min="${config.min}" max="${config.max}" step="1" aria-describedby="${field}-error" />
+              <button type="button" class="adjust-button adjust-increase" data-field="${field}" data-delta="1" aria-label="Increase ${config.label} by 1">+</button>
+            </div>
           </div>
           <p class="field-error" id="${field}-error" role="alert" aria-live="assertive"></p>
         </div>
       `;
     })
     .join('');
-
   rootEl.innerHTML = `
     <div class="app" data-phase="idle">
       <header class="status-bar">
@@ -558,16 +609,26 @@ function renderBaseMarkup(rootEl: HTMLElement, settings: StoredSettings): UiElem
             <span class="visually-hidden">サウンドとバイブをミュート</span>
           </button>
         </div>
-        <form class="settings-form" novalidate>
-          <fieldset class="settings-group">
-            <legend class="visually-hidden">タイマー設定</legend>
-            ${fieldsMarkup}
-          </fieldset>
-        </form>
+        <div class="settings-container">
+          <button type="button" class="settings-toggle${toggleOpenClass}" aria-controls="settings-panel" aria-expanded="${toggleExpandedAttr}">
+            <span class="settings-toggle__label">Settings</span>
+            <span class="settings-toggle__chevron" aria-hidden="true">
+              <span class="chevron chevron--down">▾</span>
+              <span class="chevron chevron--up">▴</span>
+            </span>
+          </button>
+          <div class="${panelClass}" id="settings-panel" aria-hidden="${panelAriaHidden}">
+            <form class="settings-form" novalidate>
+              <fieldset class="settings-group">
+                <legend class="visually-hidden">Timer settings</legend>
+                ${fieldsMarkup}
+              </fieldset>
+            </form>
+          </div>
+        </div>
       </section>
     </div>
   `;
-
   const container = rootEl.querySelector<HTMLElement>('.app');
   const phaseLabel = rootEl.querySelector<HTMLElement>('.phase-label');
   const roundLabel = rootEl.querySelector<HTMLElement>('.round-label');
@@ -576,11 +637,13 @@ function renderBaseMarkup(rootEl: HTMLElement, settings: StoredSettings): UiElem
   const resetButton = rootEl.querySelector<HTMLButtonElement>('.action-reset');
   const muteButton = rootEl.querySelector<HTMLButtonElement>('.action-mute');
   const muteIcon = rootEl.querySelector<HTMLElement>('.mute-icon');
+  const settingsToggle = rootEl.querySelector<HTMLButtonElement>('.settings-toggle');
+  const settingsPanel = rootEl.querySelector<HTMLElement>('#settings-panel');
   const settingsForm = rootEl.querySelector<HTMLFormElement>('.settings-form');
   const progressCircle = rootEl.querySelector<SVGCircleElement>('.ring-progress');
   const adjustButtons = Array.from(rootEl.querySelectorAll<HTMLButtonElement>('.adjust-button'));
 
-  if (!container || !phaseLabel || !roundLabel || !timeValue || !startButton || !resetButton || !muteButton || !muteIcon || !settingsForm || !progressCircle) {
+  if (!container || !phaseLabel || !roundLabel || !timeValue || !startButton || !resetButton || !muteButton || !muteIcon || !settingsToggle || !settingsPanel || !settingsForm || !progressCircle) {
     throw new Error('UI 初期化に失敗しました');
   }
 
@@ -642,6 +705,8 @@ function renderBaseMarkup(rootEl: HTMLElement, settings: StoredSettings): UiElem
     resetLabel,
     muteButton,
     muteIcon,
+    settingsToggle,
+    settingsPanel,
     settingsForm,
     inputs,
     errors,

@@ -2,6 +2,7 @@
 
 export interface StoredSettings extends TimerSettings {
   muted: boolean;
+  settingsPanelOpen: boolean;
 }
 
 export const STORAGE_KEY = 'hiit.settings.v1';
@@ -10,7 +11,8 @@ export const DEFAULT_SETTINGS: StoredSettings = {
   workSeconds: 20,
   restSeconds: 10,
   rounds: 8,
-  muted: false
+  muted: false,
+  settingsPanelOpen: true
 };
 
 export function loadSettings(): StoredSettings {
@@ -20,21 +22,27 @@ export function loadSettings(): StoredSettings {
       return { ...DEFAULT_SETTINGS };
     }
     const parsed = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null) {
+      return { ...DEFAULT_SETTINGS };
+    }
+    const candidate = parsed as Partial<StoredSettings>;
     if (
-      typeof parsed !== 'object' ||
-      parsed === null ||
-      typeof parsed.workSeconds !== 'number' ||
-      typeof parsed.restSeconds !== 'number' ||
-      typeof parsed.rounds !== 'number' ||
-      typeof parsed.muted !== 'boolean'
+      typeof candidate.workSeconds !== 'number' ||
+      typeof candidate.restSeconds !== 'number' ||
+      typeof candidate.rounds !== 'number' ||
+      typeof candidate.muted !== 'boolean'
     ) {
       return { ...DEFAULT_SETTINGS };
     }
     return {
-      workSeconds: clamp(Math.round(parsed.workSeconds), 5, 600),
-      restSeconds: clamp(Math.round(parsed.restSeconds), 5, 600),
-      rounds: clamp(Math.round(parsed.rounds), 1, 50),
-      muted: parsed.muted
+      workSeconds: clamp(Math.round(candidate.workSeconds), 5, 600),
+      restSeconds: clamp(Math.round(candidate.restSeconds), 5, 600),
+      rounds: clamp(Math.round(candidate.rounds), 1, 50),
+      muted: candidate.muted,
+      settingsPanelOpen:
+        typeof candidate.settingsPanelOpen === 'boolean'
+          ? candidate.settingsPanelOpen
+          : DEFAULT_SETTINGS.settingsPanelOpen
     };
   } catch (error) {
     console.warn('設定の読み込みに失敗しました', error);

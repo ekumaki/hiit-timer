@@ -174,7 +174,7 @@ body {
 }
 
 .time-display {
-  font-size: min(34vw, 220px);
+  font-size: calc(min(34vw, 220px) - 1px);
   font-weight: 700;
   line-height: 1;
   letter-spacing: -0.04em;
@@ -532,7 +532,7 @@ input:focus-visible {
 
 @media (min-width: 600px) {
   .time-display {
-    font-size: clamp(6rem, 14vw, 9rem);
+    font-size: calc(clamp(6rem, 14vw, 9rem) - 1px);
   }
 
   .settings-panel {

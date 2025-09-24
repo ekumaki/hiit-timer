@@ -174,7 +174,8 @@ body {
 }
 
 .time-display {
-  font-size: calc(min(34vw, 220px) - 1px);
+  /* 現状より約5%小さくする（-1pxは撤廃） */
+  font-size: calc(min(34vw, 220px) * 0.95);
   font-weight: 700;
   line-height: 1;
   letter-spacing: -0.04em;
@@ -532,7 +533,8 @@ input:focus-visible {
 
 @media (min-width: 600px) {
   .time-display {
-    font-size: calc(clamp(6rem, 14vw, 9rem) - 1px);
+    /* 600px以上は現状維持 */
+    font-size: clamp(6rem, 14vw, 9rem);
   }
 
   .settings-panel {

@@ -296,11 +296,11 @@ function updateView(snapshot: TimerSnapshot): void {
 
   const { status } = snapshot;
   if (status === 'running') {
-    ui.startIcon.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M7 6h4v12H7zM13 6h4v12h-4z"/></svg>';
+    ui.startIcon.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="currentColor" d="M7 6h4v12H7zM13 6h4v12h-4z"/></svg>';
     ui.startLabel.textContent = 'Pause';
     ui.startButton.setAttribute('aria-label', 'Pause timer');
   } else {
-    ui.startIcon.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>';
+    ui.startIcon.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>';
     ui.startLabel.textContent = 'Start';
     const ariaText = status === 'paused' ? 'Resume timer' : 'Start timer';
     ui.startButton.setAttribute('aria-label', ariaText);

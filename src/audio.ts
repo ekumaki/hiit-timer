@@ -6,7 +6,7 @@ const AudioContextCtor: typeof AudioContext | undefined =
     : undefined;
 
 // マスターゲイン（全体音量）
-const DEFAULT_GAIN = 0.6;
+const DEFAULT_GAIN = 0.4;
 
 const BEEP_PRESETS: Record<BeepType, { frequency: number; durationMs: number }> = {
   countdown: { frequency: 440, durationMs: 200 },

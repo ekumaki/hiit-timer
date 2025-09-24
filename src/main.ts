@@ -173,6 +173,12 @@ function initialize(): void {
     void audioManager.unlock?.();
   };
   document.addEventListener('pointerdown', unlockAudio, { once: true, passive: true });
+  // 念のため、最初の click でも解放試行（端末差吸収）
+  const unlockAudioOnClick = () => {
+    document.removeEventListener('click', unlockAudioOnClick);
+    void audioManager.unlock?.();
+  };
+  document.addEventListener('click', unlockAudioOnClick, { once: true, passive: true });
 
   setMutedState(state.settings.muted);
   updateStartButtonAvailability();

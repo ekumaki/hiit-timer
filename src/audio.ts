@@ -5,7 +5,8 @@ const AudioContextCtor: typeof AudioContext | undefined =
     ? (window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)
     : undefined;
 
-const DEFAULT_GAIN = 0.3;
+// マスターゲイン（全体音量）
+const DEFAULT_GAIN = 0.6;
 
 const BEEP_PRESETS: Record<BeepType, { frequency: number; durationMs: number }> = {
   countdown: { frequency: 440, durationMs: 200 },
@@ -39,13 +40,31 @@ export class AudioManager {
     const oscillator = context.createOscillator();
     const gainNode = context.createGain();
     oscillator.frequency.value = frequency;
-    gainNode.gain.value = DEFAULT_GAIN;
+
+    // クリックノイズを避けつつ可聴性を上げるためのエンベロープ
+    const now = context.currentTime;
+    const attack = 0.005; // 5ms attack
+    const release = 0.04; // 40ms release
+    const sustainGain = 1.0; // ローカルは最大、最終的な音量はマスターゲインで制御
+    gainNode.gain.setValueAtTime(0, now);
+    gainNode.gain.linearRampToValueAtTime(sustainGain, now + attack);
+    gainNode.gain.setValueAtTime(sustainGain, now + Math.max(attack, (durationMs / 1000) - release));
+    gainNode.gain.linearRampToValueAtTime(0, now + durationMs / 1000);
+
     oscillator.connect(gainNode);
     gainNode.connect(this.gain ?? context.destination);
 
-    const now = context.currentTime;
     oscillator.start(now);
     oscillator.stop(now + durationMs / 1000);
+
+    oscillator.onended = () => {
+      try {
+        oscillator.disconnect();
+        gainNode.disconnect();
+      } catch {
+        // no-op
+      }
+    };
   }
 
   /**

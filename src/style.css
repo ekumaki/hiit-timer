@@ -164,6 +164,7 @@ body {
   transition: stroke-dashoffset 0.2s ease;
 }
 
+.app[data-phase='idle'] .ring-progress,
 .app[data-phase='work'] .ring-progress {
   stroke: #ff7400;
 }

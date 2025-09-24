@@ -651,7 +651,8 @@ function renderBaseMarkup(rootEl: HTMLElement, settings: StoredSettings): UiElem
               ${fieldsMarkup}
               <div class="setting-field setting-field--notifications">
                 <div class="setting-toggle-row">
-                  <span class="setting-label">音声・バイブ通知</span>
+                  <span class="setting-label">音声・バイブ</span>
+                  
                   <div class="notifications-control">
                     <span class="notifications-icon" aria-hidden="true">${notificationsIconChar}</span>
                     <button type="button" class="notifications-toggle toggle-switch${notificationsToggleClass}" role="switch" aria-checked="${notificationsAriaChecked}">

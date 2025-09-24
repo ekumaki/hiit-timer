@@ -19,19 +19,19 @@ const FIELD_CONFIG: Record<FieldKey, FieldConfig> = {
     label: 'Work',
     min: 5,
     max: 600,
-    errorMessage: '5〜600の整数で入力してください'
+    errorMessage: '5〜600秒の範囲で設定してください'
   },
   restSeconds: {
     label: 'Rest',
     min: 5,
     max: 600,
-    errorMessage: '5〜600の整数で入力してください'
+    errorMessage: '5〜600秒の範囲で設定してください'
   },
   rounds: {
     label: 'Round',
     min: 1,
     max: 50,
-    errorMessage: '1〜50の整数で入力してください'
+    errorMessage: '1〜50回の範囲で設定してください'
   }
 };
 
@@ -167,6 +167,13 @@ function initialize(): void {
     }
   });
 
+  // iOS Safari などでのオーディオ解放: 初回ユーザー操作でAudioContextを確実に初期化
+  const unlockAudio = () => {
+    document.removeEventListener('pointerdown', unlockAudio);
+    void audioManager.unlock?.();
+  };
+  document.addEventListener('pointerdown', unlockAudio, { once: true, passive: true });
+
   setMutedState(state.settings.muted);
   updateStartButtonAvailability();
 }
@@ -289,23 +296,17 @@ function updateView(snapshot: TimerSnapshot): void {
 
   const { status } = snapshot;
   if (status === 'running') {
-    ui.startIcon.textContent = '⏸';
-    ui.startIcon.style.fontSize = '1.2em';
+    ui.startIcon.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="currentColor" d="M7 6h4v12H7zM13 6h4v12h-4z"/></svg>';
     ui.startLabel.textContent = 'Pause';
     ui.startButton.setAttribute('aria-label', 'Pause timer');
   } else {
-    ui.startIcon.style.fontSize = '1.1em';
-    ui.startIcon.textContent = '▶';
-    ui.startIcon.style.fontSize = '0.9em';
-    ui.startIcon.style.lineHeight = '1';
+    ui.startIcon.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>';
     ui.startLabel.textContent = 'Start';
-    ui.startLabel.style.fontSize = '1.1rem';
-    ui.startLabel.style.lineHeight = '1';
     const ariaText = status === 'paused' ? 'Resume timer' : 'Start timer';
     ui.startButton.setAttribute('aria-label', ariaText);
   }
 
-  const resetEnabled = status === 'paused' || status === 'finished' || status === 'idle';
+  const resetEnabled = status === 'paused' || status === 'finished';
   ui.resetButton.disabled = !resetEnabled;
 
   setInputsDisabled(status === 'running' || status === 'paused');
@@ -650,7 +651,8 @@ function renderBaseMarkup(rootEl: HTMLElement, settings: StoredSettings): UiElem
               ${fieldsMarkup}
               <div class="setting-field setting-field--notifications">
                 <div class="setting-toggle-row">
-                  <span class="setting-label">音声・バイブ通知</span>
+                  <span class="setting-label">音声・バイブ</span>
+                  
                   <div class="notifications-control">
                     <span class="notifications-icon" aria-hidden="true">${notificationsIconChar}</span>
                     <button type="button" class="notifications-toggle toggle-switch${notificationsToggleClass}" role="switch" aria-checked="${notificationsAriaChecked}">
@@ -744,7 +746,7 @@ function renderBaseMarkup(rootEl: HTMLElement, settings: StoredSettings): UiElem
 
   const radius = progressCircle.r.baseVal.value;
   const circumference = 2 * Math.PI * radius;
-  progressCircle.style.strokeDasharray = `${circumference}`;
+  progressCircle.style.strokeDasharray = `${circumference} ${circumference}`;
   progressCircle.style.strokeDashoffset = `${circumference}`;
 
   return {

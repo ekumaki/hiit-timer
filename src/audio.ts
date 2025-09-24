@@ -5,7 +5,7 @@ const AudioContextCtor: typeof AudioContext | undefined =
     ? (window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)
     : undefined;
 
-const DEFAULT_GAIN = 0.2;
+const DEFAULT_GAIN = 0.3;
 
 const BEEP_PRESETS: Record<BeepType, { frequency: number; durationMs: number }> = {
   countdown: { frequency: 440, durationMs: 200 },
@@ -46,6 +46,14 @@ export class AudioManager {
     const now = context.currentTime;
     oscillator.start(now);
     oscillator.stop(now + durationMs / 1000);
+  }
+
+  /**
+   * iOS Safari などで、ユーザー操作直後にオーディオを解放するためのフック。
+   * 初回の pointerdown などから呼び出してください。
+   */
+  async unlock(): Promise<void> {
+    void (await this.ensureContext());
   }
 
   private async ensureContext(): Promise<AudioContext | null> {

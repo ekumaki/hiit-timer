@@ -91,14 +91,14 @@ body {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  background: transparent;
   color: inherit;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background 0.2s ease, transform 0.3s ease;
+  transition: color 0.2s ease, transform 0.3s ease;
 }
 
 .gear-button span {
@@ -110,12 +110,19 @@ body {
 
 .gear-button:hover,
 .gear-button:focus-visible {
-  background: rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .gear-button:hover span,
 .gear-button--open span {
   transform: rotate(90deg);
+}
+
+/* 設定ボタンのフォーカス枠線を非表示にする */
+.gear-button:focus,
+.gear-button:focus-visible {
+  outline: none;
 }
 
 .timer-area {

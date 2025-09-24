@@ -6,8 +6,8 @@
   "scope": "./",
   "display": "standalone",
   "display_override": ["standalone"],
-  "theme_color": "#1E88E5",
-  "background_color": "#1E88E5",
+  "theme_color": "#000000",
+  "background_color": "#000000",
   "description": "運動と休憩のインターバルをシンプルに管理できる HIIT タイマーです。",
   "icons": [
     {
